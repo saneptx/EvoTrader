@@ -42,3 +42,46 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pyright
       - run: uv run pytest -q
+
+  # Runs the repository's own docker-compose.yml (not Actions service containers) as documented
+  # in the README, and checks health, PostgreSQL SELECT 1 and Redis PING.
+  compose-smoke:
+    runs-on: ubuntu-24.04
+    env:
+      COMPOSE_PROJECT_NAME: evotrader-ci-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record compose file under test
+        run: |
+          git rev-parse HEAD
+          sha256sum docker-compose.yml
+          docker --version
+          docker compose version
+      - name: Start services as documented
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose up -d --wait --wait-timeout 180 postgres redis
+      - name: Health status
+        run: |
+          docker compose ps
+          for svc in postgres redis; do
+            state=$(docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q "$svc")")
+            echo "$svc health=$state"
+            test "$state" = healthy
+          done
+      - name: PostgreSQL SELECT 1
+        run: |
+          out=$(docker compose exec -T postgres psql -U evotrader -d evotrader -tAc 'SELECT 1')
+          echo "SELECT 1 -> $out"
+          test "$out" = 1
+      - name: Redis PING
+        run: |
+          out=$(docker compose exec -T redis redis-cli PING)
+          echo "PING -> $out"
+          test "$out" = PONG
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose logs --no-color --tail 50 || true
+          docker compose down -v

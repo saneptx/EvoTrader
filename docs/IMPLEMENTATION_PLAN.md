@@ -30,13 +30,19 @@ current environment (reason noted) · `[ ]` not started.
 **Day 1 — scaffold & toolchain**
 - [x] `pyproject.toml` (src layout, Python 3.12, pinned via `uv.lock`)
 - [x] Package skeleton `src/evotrader/` matching spec §2 module boundaries
-- [x] `core/config.py` (env settings, `RUN_MODE` guard: anything but `research` fails startup), `core/errors.py`
+- [x] `core/config.py` (process env > `.env` in CWD > defaults; `RUN_MODE` guard: anything but `research`
+      fails startup), `core/errors.py` — `.env` support added after Codex acceptance FAIL (see below)
 - [x] ruff (lint + format, `eval`/`exec` banned), pyright strict, pytest with `unit`/`integration`/`golden` markers
-- [~] GitHub Actions CI (lint, format check, type check, tests; Postgres/Redis services) — YAML parses and
-      the same steps pass locally via `scripts/check.sh`; **not yet run on GitHub** (no remote)
-- [~] `docker-compose.yml` (postgres+pgvector, redis) — written, **not executed** (no Docker on host)
-- [x] `.env.example` (placeholders only), `.gitignore`, README skeleton
+- [x] GitHub Actions CI (lint, format check, type check, tests; Postgres/Redis services) — first run on
+      `saneptx/EvoTrader` (run 42506212186) succeeded
+- [~] `docker-compose.yml` (postgres+pgvector, redis) — no Docker on dev host; verified by the
+      `compose-smoke` CI job (health, `SELECT 1`, `PING`) — pending Codex re-verification
+- [x] `.env.example` (placeholders only), `.gitignore`, README with configuration contract
 - [x] ADRs for the main ambiguities (`docs/adr/`)
+
+**Day 1 acceptance (Codex)**: `f5bf86b` FAIL — (1) README/`.env.example` told users to create `.env`
+but the app ignored it; (2) Compose never executed. Both addressed in the follow-up commit; Day 1 is
+not accepted until Codex re-verifies. Day 2 does not start before that.
 
 **Day 2 — data layer**
 - [ ] SQLAlchemy models + Alembic baseline migration for spec §5 core tables (+ CHECKs, FKs, indexes)

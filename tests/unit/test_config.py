@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import shutil
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
@@ -55,3 +57,47 @@ def test_negative_budget_rejected(clean_env: pytest.MonkeyPatch) -> None:
     clean_env.setenv("MAX_RESEARCH_COST_USD", "-1")
     with pytest.raises(ConfigurationError):
         load_settings()
+
+
+# --- .env file contract (README "Configuration"; Day 1 acceptance follow-up) ---
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _write_env(lines: list[str]) -> None:
+    Path(".env").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_dotenv_in_working_directory_is_applied(clean_env: pytest.MonkeyPatch) -> None:
+    _write_env(["RUN_MODE=research", "ARTIFACT_ROOT=/tmp/evo-dotenv-sentinel"])
+    settings = load_settings()
+    assert settings.artifact_root == Path("/tmp/evo-dotenv-sentinel")  # noqa: S108
+
+
+def test_dotenv_live_run_mode_fails_startup(clean_env: pytest.MonkeyPatch) -> None:
+    _write_env(["RUN_MODE=live", "ARTIFACT_ROOT=/tmp/evo-dotenv-sentinel"])
+    with pytest.raises(ConfigurationError) as info:
+        load_settings()
+    assert "run_mode" in info.value.message
+
+
+def test_process_env_overrides_dotenv(clean_env: pytest.MonkeyPatch) -> None:
+    _write_env(["ARTIFACT_ROOT=/tmp/from-dotenv"])
+    clean_env.setenv("ARTIFACT_ROOT", "/tmp/from-process")  # noqa: S108
+    assert load_settings().artifact_root == Path("/tmp/from-process")  # noqa: S108
+
+
+def test_process_env_cannot_be_bypassed_by_dotenv_research(clean_env: pytest.MonkeyPatch) -> None:
+    _write_env(["RUN_MODE=research"])
+    clean_env.setenv("RUN_MODE", "live")
+    with pytest.raises(ConfigurationError):
+        load_settings()
+
+
+def test_env_example_copied_verbatim_loads_as_research(clean_env: pytest.MonkeyPatch) -> None:
+    """``cp .env.example .env`` must yield a valid research configuration (compose keys ignored)."""
+    shutil.copyfile(REPO_ROOT / ".env.example", ".env")
+    settings = load_settings()
+    assert settings.run_mode == "research"
+    assert settings.artifact_root == Path("artifacts")
+    assert settings.llm_provider == "fake"

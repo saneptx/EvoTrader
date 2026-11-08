@@ -1,6 +1,10 @@
 """Runtime configuration loaded from environment variables (spec §3, §16).
 
 v0.1 supports research mode only: any other ``RUN_MODE`` fails startup.
+
+Sources, highest precedence first: process environment variables, then ``.env`` in the current
+working directory (run commands from the repository root), then the defaults below. The same
+``.env`` is read by docker compose; keys this class does not define (``POSTGRES_*``) are ignored.
 """
 
 from __future__ import annotations
@@ -19,7 +23,8 @@ SUPPORTED_RUN_MODES = ("research",)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=None,
+        env_file=".env",
+        env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
         frozen=True,

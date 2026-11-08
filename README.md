@@ -23,7 +23,24 @@ docker compose up -d postgres redis
 scripts/check.sh            # ruff, ruff format --check, pyright, pytest
 ```
 
-Unit tests need no network, database or API keys. Tests marked `integration` need the Compose
+## Configuration
+
+One `.env` file in the repository root serves both consumers:
+
+- **Application** (`evotrader.core.config.load_settings`): reads `RUN_MODE`, `DATABASE_URL`,
+  `REDIS_URL`, `ARTIFACT_ROOT`, `LLM_*`, `MAX_*` from `.env` in the *current working directory*,
+  so run `uv run ...` from the repository root. Process environment variables override `.env`.
+  Anything but `RUN_MODE=research` fails at load time with `CONFIGURATION_ERROR`.
+- **docker compose**: reads `POSTGRES_*` and `REDIS_PORT` from the same `.env` (the application ignores them).
+
+Check the effective application configuration (there is no long-running app before Day 6):
+
+```bash
+uv run python -c "from evotrader.core.config import load_settings; s = load_settings(); print(s.run_mode, s.artifact_root)"
+```
+
+Unit tests need no network, database or API keys, and run with an isolated working directory,
+so a local `.env` does not affect them. Tests marked `integration` need the Compose
 services and are skipped with a reason when they are unreachable.
 
 ## Safety constraints (v0.1)
